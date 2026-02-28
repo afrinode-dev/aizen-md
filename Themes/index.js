@@ -1,9 +1,5 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const fs = require('fs');
+const path = require('path');
 
 // Charger tous les thèmes du dossier Themes
 function loadAllThemes() {
@@ -107,13 +103,13 @@ if (!allThemes[themeConfig.defaultTheme] && Object.keys(allThemes).length > 0) {
 }
 
 // Fonction pour obtenir un thème spécifique
-export function getTheme(themeName = null) {
+function getTheme(themeName = null) {
     const themeToLoad = themeName || themeConfig.defaultTheme;
     return allThemes[themeToLoad] || allThemes[themeConfig.defaultTheme] || getDefaultThemeObject();
 }
 
 // Fonction pour changer le thème par défaut
-export function setDefaultTheme(themeName) {
+function setDefaultTheme(themeName) {
     if (allThemes[themeName]) {
         // Mettre à jour la configuration en mémoire
         themeConfig.defaultTheme = themeName;
@@ -128,17 +124,17 @@ export function setDefaultTheme(themeName) {
 }
 
 // Fonction pour lister les thèmes disponibles
-export function listThemes() {
+function listThemes() {
     return Object.keys(allThemes);
 }
 
 // Obtenir le thème par défaut actuel
-export function getDefaultTheme() {
+function getDefaultTheme() {
     return themeConfig.defaultTheme;
 }
 
 // Obtenir une image aléatoire du thème
-export function getRandomThemeImage(theme) {
+function getRandomThemeImage(theme) {
     try {
         if (!theme || !theme.STRINGS || !theme.STRINGS.global || !theme.STRINGS.global.images) {
             return null;
@@ -159,7 +155,7 @@ export function getRandomThemeImage(theme) {
 }
 
 // Obtenir les messages d'un thème
-export function getThemeMessages(theme) {
+function getThemeMessages(theme) {
     try {
         if (!theme || !theme.STRINGS || !theme.STRINGS.global) {
             return getDefaultMessages();
@@ -186,7 +182,7 @@ export function getThemeMessages(theme) {
 }
 
 // Recharger la configuration des thèmes depuis le fichier
-export function reloadThemeConfig() {
+function reloadThemeConfig() {
     themeConfig = loadThemeConfig();
     console.log(`🔄 Configuration thèmes rechargée: ${themeConfig.defaultTheme}`);
     return themeConfig;
@@ -229,7 +225,8 @@ function getDefaultMessages() {
     };
 }
 
-export default {
+// Exporter toutes les fonctions
+module.exports = {
     getTheme,
     setDefaultTheme,
     listThemes,
