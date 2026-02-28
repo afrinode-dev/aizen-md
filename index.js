@@ -1,520 +1,464 @@
-import {
-  makeWASocket,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  DisconnectReason,
-  jidDecode,
-  jidNormalizedUser,
-  isJidUser,
-  isJidGroup,
-  areJidsSameUser,
-  getContentType,
-  extractMessageContent
-} from "gifted-baileys";
-import chalk from "chalk";
-import fs from "fs-extra";
-import path from "path";
+import pkg from 'gifted-baileys';
 import pino from "pino";
-import { Boom } from "@hapi/boom";
-import { fileURLToPath } from 'url';
+import fs from "fs";
 import axios from 'axios';
+import { sms } from "./library/myfunc.js";
+import { yushi, danscot } from "./library/couleur.js";
+import settings from "./settings.js";
+import welcomeHandler from './plugins/welcome.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { 
+    default: makeWASocket, 
+    useMultiFileAuthState,
+    DisconnectReason,
+    Browsers
+} = pkg;
 
-// Charger la configuration depuis settings.js
-let settings = {};
-try {
-  settings = (await import('./settings.js')).default;
-} catch (error) {
-  console.error('❌ Erreur chargement settings.js:', error.message);
-  process.exit(1);
-}
-
-// =================== CONFIGURATION ===================
 const config = {
-  PREFIXE_COMMANDE: settings.PREFIX || ".",
-  DOSSIER_AUTH: settings.DOSSIER_AUTH || "session",
-  LOG_LEVEL: settings.LOG_LEVEL || "info",
-  RECONNECT_DELAY: parseInt(settings.RECONNECT_DELAY) || 5000,
-  OWNER_NUMBER: settings.OWNER_NUMBER || "",
-  SESSION_ID: settings.SESSION_ID || "",
-  GITHUB_USERNAME: settings.GITHUB_USERNAME || "afrinode-dev",
-  GITHUB_TOKEN: settings.GITHUB_TOKEN || process.env.GITHUB_TOKEN || "",
-  PRIVATE_MODE: settings.PRIVATE_MODE || true,
-  ALLOWED_USERS: settings.ALLOWED_USERS || []
+  sessionPath: "./Sessions",
+  browser: Browsers.ubuntu('Gifted'),
+  logLevel: "silent",
+  connectTimeoutMs: 60000,
+  defaultQueryTimeoutMs: 60000,
+  keepAliveIntervalMs: 10000,
+  syncFullHistory: false,
+  generateHighQualityLinkPreview: true,
+  markOnlineOnConnect: true,
+  printQRInTerminal: false,
+  PREFIXE_COMMANDE: settings.PREFIX || '.'
 };
 
-// Couleurs personnalisées
-const colors = {
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m',
-    white: '\x1b[37m',
-    deeppink: '\x1b[38;5;198m',
-    reset: '\x1b[0m'
+const store = { 
+    contacts: {}, 
+    chats: {}, 
+    messages: {},
+    loadMessage: function(jid, id) {
+        return this.messages[jid]?.[id];
+    },
+    bind: function(ev) {
+        ev.on('messages.upsert', ({ messages }) => {
+            const message = messages[0];
+            if (!message?.key?.remoteJid) return;
+            if (!this.messages[message.key.remoteJid]) {
+                this.messages[message.key.remoteJid] = {};
+            }
+            this.messages[message.key.remoteJid][message.key.id] = message;
+        });
+    },
+    destroy: function() {
+        this.contacts = {};
+        this.chats = {};
+        this.messages = {};
+    }
 };
 
-const colorize = (text, color) => `${colors[color] || colors.white}${text}${colors.reset}`;
-
-// =================== LOGGER ===================
-const logger = pino({
-  level: config.LOG_LEVEL,
-  transport: {
-    target: "pino-pretty",
-    options: { colorize: true, ignore: "pid,hostname", translateTime: "HH:MM:ss" }
-  },
-  base: null
-});
-
-// =================== FICHIERS DE DONNÉES ===================
-const DB_PATH = "./db/database.json";
-const BANNED_PATH = "./db/banned.json";
-const PRIVATE_PATH = "./db/private.json";
-
-// Créer le dossier db s'il n'existe pas
-if (!fs.existsSync("./db")) {
-  fs.mkdirSync("./db", { recursive: true });
-}
-
-// Initialiser les fichiers
-if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ users: {} }, null, 2));
-if (!fs.existsSync(BANNED_PATH)) fs.writeFileSync(BANNED_PATH, JSON.stringify({ banned: [] }, null, 2));
-if (!fs.existsSync(PRIVATE_PATH)) fs.writeFileSync(PRIVATE_PATH, JSON.stringify({ 
-  enabled: config.PRIVATE_MODE, 
-  allowed: config.ALLOWED_USERS 
-}, null, 2));
-
-// =================== UTILITAIRES ===================
-const getBareNumber = (input) => {
-  if (!input) return "";
-  // Extraire le numéro sans le suffixe @s.whatsapp.net
-  const str = String(input);
-  const parts = str.split('@')[0].split(':')[0];
-  return parts.replace(/[^0-9]/g, "");
-};
-
-const normalizeJid = (jid) => {
-  if (!jid) return null;
-  const base = String(jid).trim().split(":")[0];
-  return base.includes("@") ? base : `${base}@s.whatsapp.net`;
-};
-
-const getText = (m) => {
-  if (!m?.message) return "";
-  
-  const msg = m.message;
-  const type = getContentType(msg);
-  
-  if (!type) return "";
-  
-  const content = extractMessageContent(msg[type]);
-  
-  return (
-    content?.text ||
-    content?.caption ||
-    content?.selectedButtonId ||
-    content?.selectedRowId ||
-    content?.selectedId ||
-    msg.conversation ||
-    msg.extendedTextMessage?.text ||
-    msg.imageMessage?.caption ||
-    msg.videoMessage?.caption ||
-    msg.buttonsResponseMessage?.selectedButtonId ||
-    msg.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msg.templateButtonReplyMessage?.selectedId ||
-    ""
-  );
-};
-
-const isOwner = (senderNum, botNumber) => {
-  const ownerNum = getBareNumber(config.OWNER_NUMBER);
-  return senderNum === ownerNum || senderNum === botNumber;
-};
-
-// =================== GESTION DE SESSION GITHUB GIST ===================
 const utils = {
-  sessionPath: config.DOSSIER_AUTH,
-
   cleanSession: () => {
-    if (fs.existsSync(utils.sessionPath)) {
-      fs.rmSync(utils.sessionPath, { recursive: true, force: true });
-      console.log(colorize("🧹 Session nettoyée", "cyan"));
+    if (fs.existsSync(config.sessionPath)) {
+      fs.rmSync(config.sessionPath, { recursive: true, force: true });
+      console.log(yushi("🧹 Session nettoyée", "cyan"));
     }
   },
 
-  sessionExists: () => fs.existsSync(`${utils.sessionPath}/creds.json`),
+  sessionExists: () => fs.existsSync(`${config.sessionPath}/creds.json`),
 
-  downloadFromGist: async (gistId) => {
+  log: (message, color = "white", level = "INFO") => {
+    console.log(yushi(`[${level}] ${message}`, color));
+  },
+
+  notifyOwner: async (bot, text) => {
     try {
-      if (!gistId) throw new Error('ID Gist manquant');
-      
-      console.log(colorize('🔄 Téléchargement depuis GitHub Gist...', 'yellow'));
-      
-      if (!fs.existsSync(utils.sessionPath)) {
-        fs.mkdirSync(utils.sessionPath, { recursive: true });
+      if (!bot) return;
+      await bot.sendMessage(`${settings.OWNER_NUMBER}@s.whatsapp.net`, { text });
+      console.log(yushi(`📤 Notif envoyée`, "blue"));
+    } catch (err) {
+      console.log(yushi(`❌ Erreur notif: ${err.message}`, "red"));
+    }
+  },
+
+  downloadFromPastebin: async (pasteId) => {
+    try {
+      if (!pasteId) {
+        throw new Error('ID Pastebin manquant');
       }
 
-      let realGistId = gistId;
+      console.log(yushi('🔄 Téléchargement depuis Pastebin...', 'yellow'));
+      console.log(yushi(`📊 ID: ${pasteId}`, 'cyan'));
       
-      if (gistId.includes('AIZEN-MD_')) {
-        realGistId = gistId.split('AIZEN-MD_')[1];
-      } else if (gistId.includes('/')) {
-        realGistId = gistId.split('/').pop().replace('AIZEN-MD_', '');
+      if (!fs.existsSync(config.sessionPath)) {
+        fs.mkdirSync(config.sessionPath, { recursive: true });
       }
 
-      realGistId = realGistId.replace(/[^a-zA-Z0-9]/g, '');
+      let realPasteId = pasteId;
       
-      if (!realGistId || realGistId.length < 5) {
-        throw new Error(`ID Gist invalide: ${realGistId}`);
+      if (pasteId.includes('AIZEN-MD_')) {
+        realPasteId = pasteId.split('AIZEN-MD_')[1];
+      }
+      
+      if (pasteId.includes('/')) {
+        const parts = pasteId.split('/');
+        const lastPart = parts[parts.length - 1];
+        if (lastPart.includes('AIZEN-MD_')) {
+          realPasteId = lastPart.split('AIZEN-MD_')[1];
+        } else {
+          realPasteId = lastPart;
+        }
       }
 
-      console.log(colorize(`📌 ID Gist extrait: ${realGistId}`, 'green'));
-
-      const gistApiUrl = `https://api.github.com/gists/${realGistId}`;
+      realPasteId = realPasteId.replace(/[^a-zA-Z0-9]/g, '');
       
-      const headers = {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/vnd.github.v3+json'
-      };
-
-      if (config.GITHUB_TOKEN) {
-        headers['Authorization'] = `token ${config.GITHUB_TOKEN}`;
+      if (!realPasteId || realPasteId.length < 5) {
+        throw new Error(`ID Pastebin invalide après extraction: ${realPasteId}`);
       }
 
-      const gistResponse = await axios.get(gistApiUrl, {
+      console.log(yushi(`📌 ID extrait: ${realPasteId}`, 'green'));
+
+      const pastebinUrl = `https://pastebin.com/raw/${realPasteId}`;
+      console.log(yushi(`📡 Téléchargement depuis: ${pastebinUrl}`, 'cyan'));
+
+      const response = await axios.get(pastebinUrl, {
         timeout: 30000,
-        headers: headers
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
       });
 
-      if (!gistResponse.data || !gistResponse.data.files) {
-        throw new Error('Réponse Gist invalide');
+      if (!response.data) {
+        throw new Error('Réponse vide de Pastebin');
       }
 
-      const files = gistResponse.data.files;
-      let credsFile = null;
-      let credsContent = null;
-
-      for (const [filename, fileData] of Object.entries(files)) {
-        if (filename.includes('creds') || filename.endsWith('.json')) {
-          credsFile = filename;
-          credsContent = fileData.content;
-          break;
-        }
-      }
-
-      if (!credsContent) {
-        for (const [filename, fileData] of Object.entries(files)) {
-          if (filename.endsWith('.json')) {
-            credsFile = filename;
-            credsContent = fileData.content;
-            break;
-          }
-        }
-      }
-
-      if (!credsContent) {
-        const firstFile = Object.values(files)[0];
-        if (firstFile) {
-          credsFile = Object.keys(files)[0];
-          credsContent = firstFile.content;
-        }
-      }
-
-      if (!credsContent) {
-        throw new Error('Aucun fichier trouvé dans le Gist');
+      let content = response.data;
+      
+      if (typeof content !== 'string') {
+        content = JSON.stringify(content);
       }
 
       try {
-        JSON.parse(credsContent);
+        JSON.parse(content);
+        console.log(yushi('✅ Contenu JSON valide', 'green'));
       } catch (e) {
-        throw new Error('Le contenu du Gist n\'est pas un JSON valide');
+        if (content.includes('<')) {
+          const jsonMatch = content.match(/(\{[\s\S]*\})/);
+          if (jsonMatch && jsonMatch[0]) {
+            content = jsonMatch[0];
+          } else {
+            const firstBrace = content.indexOf('{');
+            const lastBrace = content.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              content = content.substring(firstBrace, lastBrace + 1);
+            }
+          }
+        }
+        
+        try {
+          JSON.parse(content);
+        } catch (e2) {
+          throw new Error('Le contenu téléchargé n\'est pas un fichier JSON valide');
+        }
       }
 
-      fs.writeFileSync(`${utils.sessionPath}/creds.json`, credsContent);
-      console.log(colorize('✅ Session téléchargée depuis GitHub Gist!', 'green'));
+      fs.writeFileSync(`${config.sessionPath}/creds.json`, content);
+      console.log(yushi('✅ Session téléchargée avec succès depuis Pastebin!', 'green'));
       
       return true;
 
     } catch (error) {
-      console.log(colorize(`❌ Erreur téléchargement Gist: ${error.message}`, 'red'));
+      console.log(yushi(`❌ Erreur téléchargement Pastebin: ${error.message}`, 'red'));
+      
+      try {
+        if (pasteId.includes('pastebin.com')) {
+          let directUrl = pasteId;
+          if (!directUrl.includes('/raw/')) {
+            const rawId = pasteId.split('/').pop();
+            directUrl = `https://pastebin.com/raw/${rawId}`;
+          }
+          
+          const response = await axios.get(directUrl, { timeout: 30000 });
+          
+          if (response.data) {
+            let content = response.data;
+            if (typeof content !== 'string') {
+              content = JSON.stringify(content);
+            }
+            fs.writeFileSync(`${config.sessionPath}/creds.json`, content);
+            return true;
+          }
+        }
+      } catch (altError) {
+        console.log(yushi(`❌ Méthode alternative échouée: ${altError.message}`, 'red'));
+      }
+      
       return false;
     }
   },
 
-  loadSession: async () => {
+  loadSessionFromSettings: async () => {
     try {
-      if (!config.SESSION_ID) {
-        console.log(colorize('❌ SESSION_ID manquant dans settings.js', 'red'));
+      if (!settings.SESSION_ID) {
+        console.log(yushi('❌ Erreur Critique: Aucune SESSION_ID dans settings.js', 'red'));
         return false;
       }
 
-      console.log(colorize('🔍 Vérification de la session...', 'yellow'));
-
+      console.log(yushi('🔍 Session ID trouvé', 'green'));
+      
       if (utils.sessionExists()) {
-        try {
-          const creds = JSON.parse(fs.readFileSync(`${utils.sessionPath}/creds.json`, 'utf-8'));
-          if (creds && creds.me) {
-            console.log(colorize('✅ Session existante valide', 'green'));
-            return true;
-          } else {
-            console.log(colorize('⚠️ Session existante invalide, téléchargement...', 'yellow'));
-            return await utils.downloadFromGist(config.SESSION_ID);
-          }
-        } catch (e) {
-          console.log(colorize(`⚠️ Erreur lecture session: ${e.message}`, 'yellow'));
-          return await utils.downloadFromGist(config.SESSION_ID);
+        const stats = fs.statSync(`${config.sessionPath}/creds.json`);
+        const fileAge = (Date.now() - stats.mtimeMs) / 1000 / 60;
+        
+        if (fileAge < 5) {
+          console.log(yushi('✅ Session récente détectée, utilisation directe', 'green'));
+          return true;
         }
       }
       
-      return await utils.downloadFromGist(config.SESSION_ID);
+      return await utils.downloadFromPastebin(settings.SESSION_ID);
     } catch (error) {
-      console.log(colorize(`❌ Erreur chargement session: ${error.message}`, 'red'));
+      console.log(yushi(`❌ Erreur chargement: ${error.message}`, 'red'));
       return false;
     }
   }
 };
 
-// =================== BASE DE DONNÉES ===================
-const loadDatabase = () => {
-  try {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
-  } catch {
-    return { users: {} };
-  }
-};
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 50;
+const RECONNECT_DELAY = 5000;
 
-const saveDatabase = (data) => {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-};
-
-const loadBanned = () => {
-  try {
-    return JSON.parse(fs.readFileSync(BANNED_PATH, 'utf-8'));
-  } catch {
-    return { banned: [] };
-  }
-};
-
-const saveBanned = (data) => {
-  fs.writeFileSync(BANNED_PATH, JSON.stringify(data, null, 2));
-};
-
-const loadPrivate = () => {
-  try {
-    return JSON.parse(fs.readFileSync(PRIVATE_PATH, 'utf-8'));
-  } catch {
-    return { enabled: config.PRIVATE_MODE, allowed: config.ALLOWED_USERS };
-  }
-};
-
-const savePrivate = (data) => {
-  fs.writeFileSync(PRIVATE_PATH, JSON.stringify(data, null, 2));
-};
-
-// =================== CHARGER LES COMMANDES ===================
-async function loadCommands() {
-  global.commands = {};
-  const cmdDir = path.join(__dirname, "commands");
-  
-  if (!fs.existsSync(cmdDir)) {
-    fs.mkdirSync(cmdDir, { recursive: true });
-    logger.info("Dossier commands créé");
-    return;
-  }
-  
-  const files = fs.readdirSync(cmdDir).filter(f => f.endsWith(".js"));
-  logger.info(`Chargement de ${files.length} commandes...`);
-  
-  for (const file of files) {
-    try {
-      const cmd = await import(path.join(cmdDir, file));
-      const command = cmd.default || cmd;
-      
-      if (command?.name && typeof command.execute === "function") {
-        global.commands[command.name.toLowerCase()] = command;
-        logger.info(`✅ Commande chargée: ${command.name}`);
-      } else {
-        logger.warn(`⚠️ ${file} n'a pas de commande valide`);
-      }
-    } catch (err) {
-      logger.error(`❌ Erreur chargement ${file}: ${err.message}`);
+async function reconnectWithRetry() {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.log(yushi('🚨 Tentatives max atteintes. Arrêt...', "red"));
+        process.exit(1);
     }
-  }
-  
-  logger.info(`📋 Commandes disponibles: ${Object.keys(global.commands).length}`);
+
+    reconnectAttempts++;
+    const delay = Math.min(RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1), 300000);
+    
+    console.log(yushi(`🔄 Tentative ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} dans ${delay}ms...`, "yellow"));
+    
+    setTimeout(async () => {
+        try {
+            await startBot();
+        } catch (error) {
+            console.log(yushi(`❌ Échec: ${error.message}`, "red"));
+            reconnectWithRetry();
+        }
+    }, delay);
 }
 
-// =================== AFFICHER BANNIÈRE ===================
-const afficherBanner = () => {
-  console.clear();
-  console.log(colorize(`
-╔══════════════════════════════════════╗
-║         MON BOT WHATSAPP             ║
-║    Connexion via GitHub Gist         ║
-╚══════════════════════════════════════╝
-  `, "deeppink"));
-  console.log(colorize(`📌 GitHub: ${config.GITHUB_USERNAME}`, 'cyan'));
-  if (config.GITHUB_TOKEN) {
-    console.log(colorize('🔐 Token GitHub: Configuré', 'green'));
-  }
-};
-
-// =================== START BOT ===================
-let reconnectCount = 0;
-const MAX_RECONNECT = 10;
-let botNumber = null;
-
-async function startBot() {
+async function initBot() {
   try {
-    afficherBanner();
+    console.log(yushi("🔍 Initialisation du bot...", "yellow"));
     
-    console.log(colorize('🚀 Démarrage du bot...', 'yellow'));
+    const { state, saveCreds } = await useMultiFileAuthState(config.sessionPath);
 
-    const sessionLoaded = await utils.loadSession();
-    if (!sessionLoaded) {
-      console.log(colorize('❌ Échec chargement session depuis GitHub Gist', 'red'));
+    if (utils.sessionExists()) {
+      console.log(yushi("🔍 Session valide détectée", "green"));
+    } else {
+      console.log(yushi("❌ Aucune session trouvée après téléchargement", "red"));
       process.exit(1);
     }
 
-    const { state, saveCreds } = await useMultiFileAuthState(config.DOSSIER_AUTH);
-    const { version } = await fetchLatestBaileysVersion();
-
-    const sock = makeWASocket({
-      version,
-      printQRInTerminal: false,
-      logger: pino({ level: "silent" }),
+    const bot = makeWASocket({
       auth: state,
-      browser: ["Ubuntu", "Chrome", "20.0.04"],
-      getMessage: async () => {
-        return { conversation: '' };
+      browser: config.browser,
+      logger: pino({ level: config.logLevel }),
+      markOnlineOnConnect: config.markOnlineOnConnect,
+      syncFullHistory: config.syncFullHistory,
+      generateHighQualityLinkPreview: config.generateHighQualityLinkPreview,
+      connectTimeoutMs: config.connectTimeoutMs,
+      defaultQueryTimeoutMs: config.defaultQueryTimeoutMs,
+      keepAliveIntervalMs: config.keepAliveIntervalMs,
+      printQRInTerminal: config.printQRInTerminal,
+      getMessage: async (key) => {
+          if (store) {
+              const msg = store.loadMessage(key.remoteJid, key.id);
+              return msg?.message || undefined;
+          }
+          return undefined;
       }
     });
 
-    sock.ev.on("creds.update", saveCreds);
+    store.bind(bot.ev);
 
-    // === GESTION DE LA CONNEXION ===
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect } = update;
-
-      if (connection === 'connecting') {
-        console.log(colorize('🕗 Connexion en cours...', 'yellow'));
-        reconnectCount = 0;
-      }
-
-      if (connection === "open") {
-        console.log(colorize('✅ Connecté à WhatsApp!', 'green'));
-        reconnectCount = 0;
-
-        botNumber = getBareNumber(sock.user?.id);
-        global.owner = botNumber;
-        
-        logger.info(`👑 Owner (appareil connecté): ${botNumber}`);
-        logger.info(`👑 Owner number (settings): ${config.OWNER_NUMBER}`);
-        
-        console.log(colorize(`📱 Bot: ${botNumber}`, 'cyan'));
-
-        await loadCommands();
-
-        const privateData = loadPrivate();
-        console.log(colorize(`🔒 Mode privé: ${privateData.enabled ? 'Activé' : 'Désactivé'}`, privateData.enabled ? 'yellow' : 'green'));
-        if (privateData.enabled && privateData.allowed.length > 0) {
-          console.log(colorize(`👥 Utilisateurs autorisés: ${privateData.allowed.length}`, 'cyan'));
-        }
-
-        if (config.OWNER_NUMBER) {
-          setTimeout(async () => {
-            try {
-              const ownerJid = normalizeJid(config.OWNER_NUMBER);
-              const privateStatus = privateData.enabled ? 'ACTIVÉ' : 'désactivé';
-              const allowedCount = privateData.allowed.length;
-              
-              await sock.sendMessage(ownerJid, { 
-                text: `✅ *Bot connecté!*\n\n📱 Numéro: ${botNumber}\n📦 Commandes: ${Object.keys(global.commands).length}\n🔧 Prefix: ${config.PREFIXE_COMMANDE}\n🔒 Mode privé: ${privateStatus}\n👥 Utilisateurs autorisés: ${allowedCount}\n📌 Session: GitHub Gist\n\nTapez ${config.PREFIXE_COMMANDE}menu pour commencer.`
-              });
-            } catch (e) {
-              logger.warn("Message à l'owner non envoyé:", e.message);
-            }
-          }, 5000);
-        }
-      }
-
-      if (connection === "close") {
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
-        
-        if (statusCode === DisconnectReason.loggedOut) {
-          console.log(colorize('🚨 Session expirée - Nettoyage...', 'yellow'));
-          utils.cleanSession();
-          process.exit(1);
-        } else if (reconnectCount < MAX_RECONNECT) {
-          reconnectCount++;
-          const delay = Math.min(config.RECONNECT_DELAY * reconnectCount, 60000);
-          console.log(colorize(`🔄 Tentative ${reconnectCount}/${MAX_RECONNECT} dans ${delay/1000}s...`, 'yellow'));
-          setTimeout(startBot, delay);
-        } else {
-          console.log(colorize('❌ Maximum de tentatives atteint', 'red'));
-          process.exit(1);
-        }
-      }
+    bot.ev.on("creds.update", () => {
+      saveCreds();
+      console.log(yushi("🔑 Credentials mises à jour", "blue"));
     });
 
-    // === GESTION DES MESSAGES ===
-    sock.ev.on("messages.upsert", async ({ messages, type }) => {
-      console.log("TYPE EVENT:", type)
+    bot.sendText = (jid, text, quoted = null) => 
+      bot.sendMessage(jid, { text }, { quoted });
 
-      if (!messages) return
-
-      for (const m of messages) {
-        console.log("MESSAGE BRUT REÇU")
-
-        if (!m.message) continue
-
-        const text = getText(m)
-        const from = m.key.remoteJid
-        const sender = m.key.participant || from
-
-        console.log("FROM:", from)
-        console.log("TEXT:", text)
-        console.log("SENDER:", sender)
-        console.log("FROM ME:", m.key.fromMe)
-        console.log("------------------------")
-      }
-    });
-
-    return sock;
-
+    return { bot, saveCreds };
   } catch (err) {
-    console.log(colorize(`❌ Erreur critique: ${err.message}`, 'red'));
-    
-    if (reconnectCount < MAX_RECONNECT) {
-      reconnectCount++;
-      setTimeout(startBot, 10000);
-    }
+    console.log(yushi(`❌ Erreur init: ${err.message}`, "red"));
+    throw err;
   }
 }
 
-// =================== GESTION DES ERREURS GLOBALES ===================
-process.on("unhandledRejection", (err) => {
-  const ignore = ['conflict', 'not-authorized', 'ECONNRESET', 'ETIMEDOUT'];
-  if (!ignore.some(x => err.message?.includes(x))) {
-    console.log(colorize(`⚠️ Rejection: ${err.message}`, 'yellow'));
-  }
-});
+const getBareNumber = (jid) => {
+  if (!jid) return '';
+  return jid.split('@')[0].split(':')[0];
+};
 
-process.on("uncaughtException", (err) => {
-  const ignore = ['ECONNRESET', 'ETIMEDOUT'];
-  if (!ignore.some(x => err.message?.includes(x))) {
-    console.log(colorize(`⚠️ Exception: ${err.message}`, 'yellow'));
+const getText = (m) => {
+  if (!m.message) return '';
+  
+  const messageTypes = [
+    'conversation',
+    'imageMessage',
+    'videoMessage',
+    'extendedTextMessage',
+    'documentMessage',
+    'audioMessage',
+    'stickerMessage'
+  ];
+  
+  for (const type of messageTypes) {
+    if (m.message[type]?.text) return m.message[type].text;
+    if (m.message[type]?.caption) return m.message[type].caption;
   }
-});
+  
+  if (m.message.conversation) return m.message.conversation;
+  
+  return '';
+};
 
-process.on('SIGINT', () => {
-  console.log(colorize('\n👋 Arrêt...', 'yellow'));
+function setupHandlers(bot) {
+  bot.ev.on('group-participants.update', async (update) => {
+    await welcomeHandler(bot, update);
+  });
+
+  bot.ev.on("messages.upsert", async ({ messages }) => {
+    const m = messages?.[0];
+    if (!m?.message) return;
+    if (m.key.fromMe) return;
+
+    const from = m.key.remoteJid;
+    const sender = m.key.participant || from;
+    const senderNum = getBareNumber(sender);
+    const text = getText(m);
+
+    if (!text) return;
+    if (from === "status@broadcast") return;
+
+    if (!text.startsWith(config.PREFIXE_COMMANDE)) return;
+
+    const args = text.slice(config.PREFIXE_COMMANDE.length).trim().split(/ +/);
+    const commandName = args.shift()?.toLowerCase();
+
+    console.log("MESSAGE REÇU :", text);
+    
+    const processedM = sms(bot, m, store);
+    
+    const handler = await import("./CaseHandler.js");
+    handler.default(bot, processedM, { messages }, store);
+  });
+}
+
+function setupConnection(bot) {
+  bot.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect } = update;
+    
+    if (connection === "connecting") {
+      console.log(yushi("🕗 Connexion en cours...", "yellow"));
+      reconnectAttempts = 0;
+    }
+
+    if (connection === "close") {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      console.log(yushi(`🔻 Déconnexion - Code: ${statusCode}`, "red"));
+      
+      if (statusCode === DisconnectReason.loggedOut) {
+        console.log(yushi("🚨 Session expirée - Nettoyage...", "yellow"));
+        utils.cleanSession();
+        process.exit(1);
+      } else {
+        console.log(yushi("🔄 Reconnexion...", "yellow"));
+        setTimeout(() => reconnectWithRetry(), RECONNECT_DELAY);
+      }
+      
+      await utils.notifyOwner(bot, `🔻 Bot déconnecté (code: ${statusCode})`);
+      
+    } else if (connection === "open") {
+      console.log(yushi("✅ Connexion établie avec succès!", "green"));
+      reconnectAttempts = 0;
+      
+      const botNumber = bot.user?.id?.split(':')[0] || 'Inconnu';
+      
+      setTimeout(async () => {
+        try {
+          const welcomeMsg = `🤖 *AIZEN BOT - CONNEXION ÉTABLIE* 
+
+📊 **Statut Système:**
+• Session: ${settings.SESSION_ID ? '✅ Chargée (Pastebin)' : '❌ Manquante'}
+• Mode: Automatique
+• Numéro: ${botNumber}
+• Status: ✅ Connecté
+• Préfixe: ${config.PREFIXE_COMMANDE}
+
+🚀 *Bot prêt et opérationnel*`;
+
+          await utils.notifyOwner(bot, welcomeMsg);
+        } catch (err) {
+          console.log(yushi(`❌ Erreur notif: ${err.message}`, "red"));
+        }
+      }, 3000);
+    }
+  });
+}
+
+async function startBot() {
+  try {
+    const sessionLoaded = await utils.loadSessionFromSettings();
+    
+    if (!sessionLoaded) {
+      console.log(yushi('\n❌ ÉCHEC DU TÉLÉCHARGEMENT DE LA SESSION', 'red'));
+      process.exit(1);
+    }
+
+    const { bot } = await initBot();
+    setupHandlers(bot);
+    setupConnection(bot);
+
+    return bot;
+  } catch (err) {
+    console.log(yushi(`❌ Erreur critique: ${err.message}`, "red"));
+    setTimeout(() => startBot(), 10000);
+  }
+}
+
+console.clear();
+console.log(yushi(`
+╔══════════════════════════════════════╗
+║         AIZEN BOT v.0.0.9            ║
+║    CONNEXION VIA PASTEBIN UNIQUEMENT ║
+║  🔐 Format: AIZEN-MD_xxxx             ║
+║  📁 Source: settings.js               ║
+╚══════════════════════════════════════╝
+`, "deeppink"));
+
+process.on('SIGINT', async () => {
+  console.log(yushi('\n\n👋 Arrêt du bot...', 'yellow'));
   process.exit(0);
 });
 
-// =================== DÉMARRAGE ===================
+process.on('SIGTERM', async () => {
+  console.log(yushi('\n\n👋 Arrêt du bot...', 'yellow'));
+  process.exit(0);
+});
+
+process.on('uncaughtException', (err) => {
+  const e = String(err);
+  const ignore = [
+    "conflict", "not-authorized", "Socket connection timeout", 
+    "rate-overlimit", "Connection Closed", "Timed Out", 
+    "Value not found", "Stream Errored", "statusCode: 515", 
+    "statusCode: 503"
+  ];
+  if (!ignore.some(x => e.includes(x))) {
+    console.log(yushi(`⚠️ Exception non gérée: ${err.message}`, "yellow"));
+  }
+});
+
 startBot();
+
+export { startBot, utils, config, store };

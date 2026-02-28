@@ -1,14 +1,28 @@
+// Configuration du Bot
+import fs from 'fs-extra';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-dotenv.config();
 
-export default {
-    OWNER_NUMBER: process.env.OWNER_NUMBER || "24176209643",
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Charger les variables d'environnement
+if (fs.existsSync('.env')) {
+  dotenv.config({ path: path.join(__dirname, '.env') });
+}
+
+export const settings = {
+    OWNER_NUMBER: '24176209643',
     OWNER_NAME: "➵ 𝙹𝚞𝚜𝚝 𝚕𝚒𝚘𝚗𝚎𝚕 ➵",
-    PREFIX: process.env.PREFIX || ".",
-    SESSION_ID: "afrinode-dev/AIZEN-MD_37819aa089a2bbcf3fb6878cd407eebb",
-    BOT_NAME: process.env.BOT_NAME || "AIZEN",
-    DOSSIER_AUTH: process.env.SESSION_DIR || "./session",
+    PREFIX: '.',
+    SESSION_ID: 'AIZEN-MD_shzDYbkd',
+    DB_AUTH: 'link-_-*',
     BOT_THEME: 'AIZEN',
-    LOG_LEVEL: process.env.LOG_LEVEL || "info",
-    RECONNECT_DELAY: process.env.RECONNECT_DELAY || "5000"
+    LANG: "fr",
+    ALIVE_MESSAGE: "Bonjour, je suis en ligne. Comment puis-je vous aider?",
+    ALIVE_LOGO: "https://telegra.ph/file/3a2f0c8b3c6f3f5e2d4e1.jpg",
+    TIME_ZONE: "Africa/Libreville",
 };
+
+export default settings;
