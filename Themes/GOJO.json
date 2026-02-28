@@ -1,0 +1,25 @@
+{
+  "__JSON__": true,
+  "AUTHOR": "Warren lionel",
+  "theme": "GOJO",
+  "LANGUAGE": "French",
+  "LANGCODE": "fr",
+  "STRINGS": {
+    "global": {
+      "botName": "𝙶𝙾𝙹𝙾",
+      "title": "𝙶𝙾𝙹𝙾",
+      "footer": "𝙲’𝚎𝚜𝚝 𝚕𝚒𝚘𝚗𝚎𝚕 𝚕𝚎 𝚌𝚛𝚎𝚊𝚝𝚎𝚞𝚛.",
+      "greet": "« 𝙹𝚎 𝚜𝚞𝚒𝚜 𝚕𝚎 𝚙𝚕𝚞𝚜 𝚏𝚘𝚛𝚝. »",
+      "emojii": "🪬",
+      "images": [
+        "https://files.catbox.moe/s2hswq.jpeg",
+        "https://files.catbox.moe/916iji.jpeg",
+        "https://files.catbox.moe/rlcb4a.jpeg",
+        "https://files.catbox.moe/3prnzl.jpeg",
+        "https://files.catbox.moe/1slba0.jpeg",
+        "https://files.catbox.moe/wek3hu.jpeg",
+        "https://files.catbox.moe/ak4vrb.jpeg"
+      ]
+    }
+  }
+}

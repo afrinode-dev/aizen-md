@@ -1,0 +1,25 @@
+{
+  "__JSON__": true,
+  "AUTHOR": "Warren lionel",
+  "theme": "TYLA",
+  "LANGUAGE": "French",
+  "LANGCODE": "fr",
+  "STRINGS": {
+    "global": {
+      "botName": "𝚃𝚈𝙻𝙰",
+      "title": "𝚃𝚈𝙻𝙰",
+      "footer": "𝙲’𝚎𝚜𝚝 𝚕𝚒𝚘𝚗𝚎𝚕 𝚕𝚎 𝚌𝚛𝚎𝚊𝚝𝚎𝚞𝚛.",
+      "greet": "« 𝙼𝚊𝚔𝚎 𝚖𝚎 𝚜𝚠𝚎𝚊𝚝, 𝚖𝚊𝚔𝚎 𝚖𝚎 𝚑𝚘𝚝𝚝𝚎𝚛. »",
+      "emojii": "💅",
+      "images": [
+        "https://files.catbox.moe/c75aga.jpeg",
+        "https://files.catbox.moe/a4tyam.jpeg",
+        "https://files.catbox.moe/33z8a0.jpeg",
+        "https://files.catbox.moe/xkpw03.jpeg",
+        "https://files.catbox.moe/ybnaws.jpeg",
+        "https://files.catbox.moe/hdw812.jpeg",
+        "https://files.catbox.moe/33uhnh.jpeg"
+      ]
+    }
+  }
+}

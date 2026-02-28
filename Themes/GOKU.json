@@ -1,0 +1,25 @@
+{
+  "__JSON__": true,
+  "AUTHOR": "Warren lionel",
+  "theme": "GOKU",
+  "LANGUAGE": "French",
+  "LANGCODE": "fr",
+  "STRINGS": {
+    "global": {
+      "botName": "𝙶𝙾𝙺𝚄",
+      "title": "𝙶𝙾𝙺𝚄",
+      "footer": "𝙲’𝚎𝚜𝚝 𝚕𝚒𝚘𝚗𝚎𝚕 𝚕𝚎 𝚌𝚛𝚎𝚊𝚝𝚎𝚞𝚛.",
+      "greet": "𝙺𝚊𝚖𝚎𝚑𝚊𝚖𝚎𝚑𝚊!",
+      "emojii": "🐉",
+      "images": [
+        "https://files.catbox.moe/o1bo5z.jpeg",
+        "https://files.catbox.moe/fjqy94.jpeg",
+        "https://files.catbox.moe/4g67do.jpeg",
+        "https://files.catbox.moe/b2ba35.jpeg",
+        "https://files.catbox.moe/67mbct.jpeg",
+        "https://files.catbox.moe/5osv5q.jpeg",
+        "https://files.catbox.moe/pr7zyx.jpeg"
+      ]
+    }
+  }
+}

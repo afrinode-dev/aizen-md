@@ -1,0 +1,21 @@
+{
+  "__JSON__": true,
+  "AUTHOR": "Warren lionel",
+  "theme": "AIZEN",
+  "LANGUAGE": "French",
+  "LANGCODE": "fr",
+  "STRINGS": {
+    "global": {
+      "botName": "𝙰𝙸𝚉𝙴𝙽",
+      "title": "𝙰𝙸𝚉𝙴𝙽",
+      "footer": "𝙲’𝚎𝚜𝚝 𝚕𝚒𝚘𝚗𝚎𝚕 𝚕𝚎 𝚌𝚛𝚎𝚊𝚝𝚎𝚞𝚛.",
+      "greet": "« 𝙿𝚎𝚛𝚜𝚘𝚗𝚗𝚎 𝚗𝚎 𝚜'𝚎𝚜𝚝 𝚓𝚊𝚖𝚊𝚒𝚜 𝚝𝚎𝚗𝚞 𝚊𝚞 𝚜𝚘𝚖𝚖𝚎𝚝 𝚍𝚞 𝚖𝚘𝚗𝚍𝚎. »",
+      "emojii": "👑",
+      "images": [
+        "https://files.catbox.moe/xapctr.jpeg",
+        "https://files.catbox.moe/zcdjfk.jpeg",
+        "https://files.catbox.moe/s2wgmj.jpeg"
+      ]
+    }
+  }
+}
