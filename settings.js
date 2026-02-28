@@ -1,7 +1,7 @@
-import dotenv from 'dotenv';
+const dotenv = require('dotenv');
 dotenv.config();
 
-export default {
+module.exports = {
     OWNER_NUMBER: process.env.OWNER_NUMBER || "24176209643",
     OWNER_NAME: "➵ 𝙹𝚞𝚜𝚝 𝚕𝚒𝚘𝚗𝚎𝚕 ➵",
     PREFIX: process.env.PREFIX || ".",

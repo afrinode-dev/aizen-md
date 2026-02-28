@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Bot WhatsApp avec Baileys, système de ban/unban et menu automatique",
   "main": "index.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
