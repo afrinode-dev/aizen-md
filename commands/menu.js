@@ -1,12 +1,8 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { getTheme, getDefaultTheme, getRandomThemeImage, listThemes } from '../Themes/index.js';
+const fs = require('fs');
+const path = require('path');
+const { getTheme, getDefaultTheme, getRandomThemeImage, listThemes } = require('../Themes/index.js');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export default {
+module.exports = {
     name: 'menu',
     description: 'Affiche le menu du bot avec image du thème',
     
@@ -45,13 +41,13 @@ export default {
         
         for (const file of files) {
             try {
-                const module = await import(`./${file}`);
-                const cmd = module.default || module;
-                if (cmd.name) {
-                    if (cmd.ownerOnly) {
-                        ownerCommands.push(cmd);
+                const cmd = require(`./${file}`);
+                const command = cmd.default || cmd;
+                if (command.name) {
+                    if (command.ownerOnly) {
+                        ownerCommands.push(command);
                     } else {
-                        publicCommands.push(cmd);
+                        publicCommands.push(command);
                     }
                 }
             } catch (err) {

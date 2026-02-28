@@ -1,11 +1,8 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { getTheme, setDefaultTheme, listThemes, getDefaultTheme, getRandomThemeImage } from '../Themes/index.js';
+const fs = require('fs');
+const path = require('path');
+const { getTheme, setDefaultTheme, listThemes, getDefaultTheme, getRandomThemeImage } = require('../Themes/index.js');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export default {
+module.exports = {
     name: 'theme',
     description: 'Changer ou voir les thèmes du bot',
     
@@ -62,13 +59,6 @@ export default {
                 if (!availableThemes.includes(themeName)) {
                     return await sock.sendMessage(from, {
                         text: `❌ Thème "${themeName}" non trouvé !\n\n📁 *Thèmes disponibles:*\n${availableThemes.map(t => `• ${t}`).join('\n')}\n\n💡 Utilisez: ${prefix}theme NOM_DU_THEME`
-                    }, { quoted: m });
-                }
-                
-                // Vérifier les permissions (seul le propriétaire peut changer le thème)
-                if (!isOwner) {
-                    return await sock.sendMessage(from, {
-                        text: '❌ Seul le propriétaire du bot peut changer le thème !'
                     }, { quoted: m });
                 }
                 

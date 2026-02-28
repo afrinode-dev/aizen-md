@@ -1,6 +1,6 @@
-import menu from './menu.js';
+const menu = require('./menu.js');
 
-export default {
+module.exports = {
     name: 'help',
     description: 'Alias de la commande menu',
     

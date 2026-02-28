@@ -1,4 +1,4 @@
-export default {
+module.exports = {
     name: 'dev',
     description: 'Informations développeur',
     
@@ -29,7 +29,8 @@ export default {
     }
 };
 
-export const contact = {
+// Exporter également la commande contact séparément
+const contact = {
     name: 'contact',
     description: 'Envoyer le contact du développeur',
     
@@ -46,3 +47,7 @@ export const contact = {
         }, { quoted: m });
     }
 };
+
+// On peut exporter plusieurs commandes depuis le même fichier
+// en les attachant à l'objet module.exports
+module.exports.contact = contact;

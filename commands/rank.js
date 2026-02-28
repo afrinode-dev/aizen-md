@@ -1,8 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const fs = require('fs');
+const path = require('path');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, '../db/rank.json');
 
 const LEVEL_CONFIG = {
@@ -57,7 +55,7 @@ function getUserInfo(userId) {
     };
 }
 
-export default {
+module.exports = {
     name: 'rank',
     description: 'Voir votre rang et statistiques',
     
@@ -91,7 +89,7 @@ ${levelConfig.emoji} *RANG & STATISTIQUES*
 ⚡ *Commandes:* ${userInfo.commands}
 🏆 *Niveau ${userInfo.level}:* ${levelConfig.emoji} ${levelConfig.title}
 
-💡 *Gagnez des niveaux en étant actif !*`;
+💡 *Gagnez des niveaux en étant actif !`;
         
         const mentions = targetId !== sender ? [targetId] : [];
         
