@@ -1,84 +1,41 @@
 {
-    "name": "Aizen",
-    "version": "5.0.0",
-    "description": "Bot whatsapp en nodejs",
-    "main": "index.js",
-    "type": "module",
-    "scripts": {
-        "start": "node index.js",
-        "dev": "nodemon index.js",
-        "pm2": "pm2 start index.js --name Aizen-Bot",
-        "pm2-stop": "pm2 stop Aizen-Bot",
-        "pm2-restart": "pm2 restart Aizen-Bot",
-        "pm2-logs": "pm2 logs Aizen-Bot",
-        "pm2-monit": "pm2 monit"
-    },
-    "keywords": [
-        "whiskeysockets",
-        "whatsapp-bot",
-        "multi-device",
-        "Aizen",
-        "whatsapp-md",
-        "bot-whatsapp",
-        "gifted-baileys"
-    ],
-    "author": "lionel",
-    "license": "MIT",
-    "dependencies": {
-        "@adiwajshing/keyed-db": "^0.2.4",
-        "gifted-baileys": "^2.0.6",
-        "@colors/colors": "^1.5.0",
-        "@hapi/boom": "^10.0.0",
-        "archiver": "^5.3.1",
-        "awesome-phonenumber": "^2.70.0",
-        "axios": "^1.6.0",
-        "chalk": "^4.1.2",
-        "child_process": "^1.0.2",
-        "chokidar": "^3.5.3",
-        "colors": "latest",
-        "crypto": "^1.0.1",
-        "dotenv": "^16.3.1",
-        "file-type": "^18.0.0",
-        "fs": "0.0.1-security",
-        "fs-extra": "^11.1.0",
-        "gifted-btns": "^1.0.0",
-        "human-readable": "^0.2.1",
-        "jimp": "^0.16.1",
-        "js-confuser": "^1.7.3",
-        "megajs": "^1.3.2",
-        "moment-timezone": "^0.5.34",
-        "ms": "^2.1.3",
-        "node-cron": "^3.0.3",
-        "node-fetch": "^2.6.1",
-        "nodemon": "^3.0.1",
-        "parse-ms": "^2.1.0",
-        "pino": "^7.0.5",
-        "pm2": "^5.3.0",
-        "qrcode-terminal": "^0.12.0",
-        "readline": "^1.3.0",
-        "request": "^2.88.2",
-        "sharp": "^0.32.6",
-        "stream": "^0.0.3",
-        "translate-google-api": "^1.0.4",
-        "unzipper": "^0.10.14",
-        "util": "^0.12.4",
-        "yt-search": "^2.10.4",
-        "ytdl-core": "^4.11.5"
-    },
-    "devDependencies": {
-        "@types/node": "^20.8.0",
-        "eslint": "^8.51.0",
-        "prettier": "^3.0.3"
-    },
-    "engines": {
-        "node": ">=18.0.0"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/votre-username/Aizen-bot.git"
-    },
-    "bugs": {
-        "url": "https://github.com/votre-username/Aizen-bot/issues"
-    },
-    "homepage": "https://github.com/votre-username/Aizen-bot#readme"
+  "name": "whatsapp-bot-baileys",
+  "version": "1.0.0",
+  "description": "Bot WhatsApp avec Baileys, système de ban/unban et menu automatique",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "pm2": "pm2 start index.js --name bot-whatsapp",
+    "pm2-stop": "pm2 stop bot-whatsapp",
+    "pm2-logs": "pm2 logs bot-whatsapp"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "whatsapp-bot",
+    "whiskeysockets"
+  ],
+  "author": "Votre Nom",
+  "license": "MIT",
+  "dependencies": {
+    "gifted-baileys": "^2.0.6",
+    "axios": "^1.6.2",
+    "fs-extra": "^11.1.0",
+    "cheerio": "^1.2.0",
+    "chalk": "^4.1.2",
+    "gifted-btns": "1.0.0",
+    "dotenv": "^16.3.1",
+    "awesome-phonenumber": "7.2.0",
+    "node-cache": "^5.1.2",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "node-fetch": "^3.3.2",
+    "form-data": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
